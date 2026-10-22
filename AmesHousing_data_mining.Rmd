@@ -1,0 +1,1029 @@
+---
+title: "Analisis Data Mining: Studi Kasus Dataset AmesHousing"
+subtitle: "Deskripsi Data, Prediksi, Klasifikasi, dan Klastering"
+author: "Salsabila Arfan Aulia J0403241090"
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+output:
+  html_document:
+    toc: false
+    theme: cosmo
+    highlight: tango
+    code_folding: hide
+    number_sections: true
+---
+
+```{=html}
+<style>
+
+h1, h2, h3, h4 {
+  font-weight: bold;
+}
+
+</style>
+```
+
+```{r setup, include=FALSE}
+# Chunk ini mengatur opsi global untuk seluruh dokumen.
+# echo = TRUE  → kode R akan ditampilkan di output HTML
+# warning = FALSE, message = FALSE → menyembunyikan pesan/warning agar output lebih bersih
+# fig.align = "center" → semua grafik rata tengah
+knitr::opts_chunk$set(
+  echo    = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.align = "center",
+  fig.width = 9,
+  fig.height = 5
+)
+```
+
+------------------------------------------------------------------------
+
+# Business Understanding (Pendahuluan)
+
+## Latar Belakang
+
+Harga rumah merupakan salah satu aspek penting dalam bidang properti. Namun penentuan harga rumah tidak sederhana karena dipengaruhi oleh banyak faktor seperti luas bangunan, kualitas material, usia bangunan, fasilitas, dan karakteristik lainnya.
+
+Kesalahan dalam memperkirakan harga rumah dapat menyebabkan harga jual tidak sesuai dengan nilai properti sebenarnya. Oleh karena itu, diperlukan pendekatan berbasis data untuk memahami faktor yang memengaruhi harga rumah serta membangun model yang dapat membantu proses prediksi dan analisis.
+
+## Tujuan Analisis
+
+Tujuan dari analisis Data Mining pada dataset AmesHousing adalah:
+
+1.  Mengidentifikasi karakteristik rumah yang berpengaruh terhadap harga jual.
+2.  Membangun model prediksi harga rumah menggunakan **Regression.**
+3.  Mengelompokkan kategori harga rumah menggunakan **Classification.**
+4.  Menemukan segmentasi karakteristik rumah menggunakan **Clustering.**
+5.  Mengevaluasi performa metode Data Mining yang digunakan.
+
+## Dataset
+
+Dataset yang digunakan dalam analisis ini adalah **AmesHousing**, yaitu dataset mengenai data penjualan rumah di Ames, Iowa, Amerika Serikat. Dataset ini terdiri dari **2.930 observasi** dan **81 variabel**, di mana setiap observasi merepresentasikan satu data rumah dengan berbagai informasi mengenai karakteristik properti.
+
+Variabel utama pada dataset ini adalah `Sale_Price`, yaitu harga jual rumah. Selain itu, dataset AmesHousing juga memiliki berbagai variabel lain yang menggambarkan kondisi dan karakteristik rumah, seperti:
+
+* `Overall_Qual`: kualitas material dan kondisi bangunan secara keseluruhan 
+* `Gr_Liv_Area`: luas area tempat tinggal di atas permukaan tanah 
+* `Garage_Area`: luas area garasi 
+* `Total_Bsmt_SF`: total luas area basement 
+* `Year_Built`: tahun pembangunan rumah 
+* `Neighborhood`: lokasi atau kawasan perumahan
+
+Pada analisis ini, dataset AmesHousing digunakan untuk menerapkan beberapa metode Data Mining, yaitu **Regression** untuk memprediksi harga rumah, **Classification** untuk mengelompokkan kategori harga rumah, serta **Clustering** untuk menemukan segmentasi rumah berdasarkan kemiripan karakteristiknya.
+
+## Tahapan Analisis
+
+Dalam laporan ini, analisis Data Mining dilakukan melalui beberapa tahap utama:
+
+1.  **Data Understanding** — memahami struktur, distribusi, dan hubungan antar variabel\
+2.  **Regression** — membangun model prediksi harga rumah\
+3.  **Classification** — mengelompokkan rumah berdasarkan kategori harga\
+4.  **Clustering** — melakukan segmentasi rumah berdasarkan karakteristik\
+5.  **Evaluasi Model** — membandingkan performa metode yang digunakan
+
+------------------------------------------------------------------------
+
+# Persiapan Analisis
+
+## Memuat Library
+
+```{r libraries}
+# Daftar package yang digunakan dalam analisis ini:
+# - AmesHousing : menyediakan dataset AmesHousing via fungsi make_ames()
+# - tidyverse   : kumpulan package untuk manipulasi data dan visualisasi (ggplot2, dplyr, dll.)
+# - scales      : membantu format angka (misal: format dollar pada sumbu grafik)
+# - corrplot    : membuat visualisasi matriks korelasi
+# - knitr/kableExtra : membuat tabel yang rapi di output HTML
+# - rpart + rpart.plot : membangun dan memvisualisasikan Decision Tree
+# - caret       : framework machine learning (split data, confusion matrix, dll.)
+# - factoextra  : visualisasi hasil clustering (fviz_cluster, fviz_nbclust)
+# - Metrics     : menghitung metrik evaluasi regresi (RMSE, MAE)
+
+library(AmesHousing)
+library(tidyverse)
+library(scales)
+library(corrplot)
+library(knitr)
+library(kableExtra)
+library(rpart)
+library(rpart.plot)
+library(caret)
+library(factoextra)
+library(Metrics)
+library(cluster)
+```
+
+------------------------------------------------------------------------
+
+# Data Understanding & Exploratory Data Analysis
+
+## Memuat Dataset
+
+Tahap pertama yang dilakukan adalah memuat dataset **AmesHousing** ke dalam lingkungan kerja R. Dataset ini diperoleh melalui package `AmesHousing` dengan menggunakan fungsi `make_ames()`.
+
+Dataset yang telah dimuat akan disimpan ke dalam objek bernama `ames` agar dapat digunakan pada proses analisis berikutnya. Setelah dataset berhasil dimuat, dilakukan pengecekan dimensi data untuk mengetahui jumlah observasi (baris) dan jumlah variabel (kolom) yang tersedia.
+
+```{r load-data}
+# Package AmesHousing menyediakan fungsi make_ames()
+# untuk menghasilkan dataset AmesHousing yang siap dianalisis.
+
+ames <- make_ames()
+
+# Menampilkan ukuran dataset
+data.frame(
+  Informasi = c("Jumlah Observasi", "Jumlah Variabel"),
+  Nilai = c(nrow(ames), ncol(ames))
+) %>%
+  kable(
+    caption = "Dimensi Dataset AmesHousing"
+  ) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover"),
+    full_width = FALSE
+  )
+```
+
+Berdasarkan hasil pengecekan dimensi data, dataset AmesHousing memiliki **2.930 observasi** dan **81 variabel**. Setiap observasi merepresentasikan satu data rumah, sedangkan setiap variabel berisi informasi mengenai karakteristik rumah seperti luas bangunan, kualitas bangunan, fasilitas, lokasi, hingga harga jual rumah.
+
+## Struktur dan Tipe Variabel
+
+Pada tahap awal Data Understanding, dilakukan pengecekan struktur dataset untuk mengetahui jumlah observasi, jumlah variabel, tipe data, serta contoh nilai dari setiap variabel.
+
+```{r struktur-data}
+# Melihat struktur keseluruhan dataset AmesHousing.
+str(ames)
+
+# Dataset memiliki 2930 observasi dan 81 variabel,
+# sehingga pengecekan struktur dilakukan sebelum memilih variabel yang digunakan.
+
+# Menghitung jumlah variabel berdasarkan tipe data
+
+tipe_variabel <- data.frame(
+  Tipe_Data = sapply(ames, class)
+) %>%
+  group_by(Tipe_Data) %>%
+  summarise(
+    Jumlah_Variabel = n()
+  )
+
+kable(
+  tipe_variabel,
+  caption = "Ringkasan Jumlah Variabel Berdasarkan Tipe Data"
+) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover"),
+    full_width = FALSE
+  )
+```
+
+Karena dataset AmesHousing memiliki jumlah variabel yang cukup banyak, dilakukan pemilihan beberapa variabel utama yang dianggap relevan terhadap analisis harga rumah. Variabel ini dipilih berdasarkan keterkaitannya dengan harga rumah dan kebutuhan tahap modeling.
+
+```{r struktur-variabel-utama}
+# Menampilkan struktur beberapa variabel utama yang digunakan dalam analisis.
+
+str(
+  ames %>%
+    select(
+      Sale_Price,
+      Gr_Liv_Area,
+      Overall_Qual,
+      Year_Built,
+      Total_Bsmt_SF,
+      Garage_Area,
+      Full_Bath,
+      TotRms_AbvGrd,
+      Neighborhood
+    )
+)
+```
+
+Berikut penjelasan variabel-variabel utama yang digunakan dalam analisis ini:
+
+```{r tabel-variabel, echo=FALSE}
+# Membuat tabel deskripsi variabel agar laporan lebih informatif
+
+tabel_var <- data.frame(
+  Variabel = c(
+    "Sale_Price",
+    "Gr_Liv_Area",
+    "Overall_Qual",
+    "Year_Built",
+    "Total_Bsmt_SF",
+    "Garage_Area",
+    "Full_Bath",
+    "TotRms_AbvGrd",
+    "Neighborhood"
+  ),
+  
+  Tipe = c(
+    "Numerik",
+    "Numerik",
+    "Ordinal (1–10)",
+    "Numerik",
+    "Numerik",
+    "Numerik",
+    "Numerik",
+    "Numerik",
+    "Kategorik"
+  ),
+  
+  Keterangan = c(
+    "Harga jual rumah dalam USD (variabel target)",
+    "Luas bangunan di atas tanah (sqft)",
+    "Penilaian kualitas material dan konstruksi secara keseluruhan",
+    "Tahun rumah pertama kali dibangun",
+    "Total luas area basement (sqft)",
+    "Ukuran garasi dalam sqft",
+    "Jumlah kamar mandi lengkap",
+    "Total jumlah ruangan di atas tanah (tidak termasuk kamar mandi)",
+    "Nama kawasan perumahan"
+  )
+)
+
+kable(
+  tabel_var,
+  caption = "Deskripsi Variabel Utama AmesHousing"
+) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE
+  )
+```
+
+## Analisis Missing Value
+
+Sebelum dilakukan proses analisis dan pemodelan, dilakukan pengecekan missing value untuk memastikan kualitas data. Tahap ini bertujuan mengetahui apakah terdapat nilai kosong yang perlu ditangani sebelum proses Data Mining dilakukan.
+
+```{r missing-value}
+# Mengecek apakah ada nilai yang hilang (NA) di setiap kolom.
+
+missing_df <- ames %>%
+  summarise(across(everything(), ~sum(is.na(.)))) %>%
+  pivot_longer(everything(), names_to = "Variabel", values_to = "Jumlah_NA") %>%
+  filter(Jumlah_NA > 0) %>%
+  arrange(desc(Jumlah_NA))
+
+if (nrow(missing_df) == 0) {
+  cat("✓ Dataset bersih — tidak ditemukan missing value.\n")
+} else {
+  cat(sprintf("Ditemukan %d variabel dengan missing value:\n", nrow(missing_df)))
+  print(missing_df)
+}
+```
+
+## Statistik Deskriptif
+
+Statistik deskriptif dilakukan untuk melihat gambaran umum dari beberapa variabel numerik utama pada dataset AmesHousing. Karena dataset memiliki 81 variabel, analisis statistik difokuskan pada variabel yang berkaitan langsung dengan karakteristik rumah dan harga jual.
+
+```{r statistik-deskriptif}
+# Menampilkan ringkasan statistik dari beberapa variabel numerik utama
+# yang relevan terhadap analisis harga rumah.
+
+summary(ames)
+```
+
+Statistik deskriptif dilakukan terhadap seluruh variabel pada dataset AmesHousing untuk memperoleh gambaran umum mengenai distribusi nilai numerik maupun kategori yang terdapat pada data.
+
+## Distribusi Harga Rumah
+
+```{r distribusi-harga, fig.height=4}
+# Histogram menampilkan distribusi frekuensi harga rumah.
+# bins = 60 berarti data dibagi menjadi 60 kelompok interval.
+# scale_x_continuous(labels = dollar_format()) memformat sumbu X menjadi format mata uang.
+
+ggplot(ames, aes(x = Sale_Price)) +
+  geom_histogram(bins = 60, fill = "#3E7CB1", color = "white", alpha = 0.85) +
+  geom_vline(aes(xintercept = median(Sale_Price)),
+             color = "#E05C5C", linetype = "dashed", linewidth = 0.9) +
+  geom_vline(aes(xintercept = mean(Sale_Price)),
+             color = "#F5A623", linetype = "solid", linewidth = 0.9) +
+  annotate("text", x = median(ames$Sale_Price) + 12000, y = 170,
+           label = "Median", color = "#E05C5C", size = 3.5, hjust = 0) +
+  annotate("text", x = mean(ames$Sale_Price) + 12000, y = 155,
+           label = "Mean", color = "#F5A623", size = 3.5, hjust = 0) +
+  scale_x_continuous(labels = dollar_format()) +
+  labs(
+    title    = "Distribusi Harga Rumah di Ames, Iowa",
+    subtitle = "Garis merah = Median | Garis kuning = Mean",
+    x        = "Harga Jual (USD)",
+    y        = "Frekuensi"
+  ) +
+  theme_minimal(base_size = 12)
+```
+
+> **Interpretasi:** Distribusi harga rumah berbentuk *right-skewed* (ekor memanjang ke kanan). Artinya, sebagian besar rumah dijual di kisaran harga moderat, tetapi ada sejumlah kecil rumah mewah dengan harga jauh di atas rata-rata. Nilai **mean lebih tinggi dari median**, yang menjadi ciri khas distribusi miring kanan.
+
+## Korelasi Variabel Numerik dengan Harga
+
+```{r korelasi, fig.height=6}
+# Langkah 1: Ubah Overall_Qual dari factor ke numerik agar bisa dihitung korelasinya.
+# Langkah 2: Pilih variabel numerik yang relevan.
+# Langkah 3: Hitung matriks korelasi Pearson.
+# corrplot() memvisualisasikan matriks tersebut dengan warna dan angka.
+
+ames <- ames %>% mutate(Overall_Qual = as.numeric(Overall_Qual))
+
+num_cols <- ames %>%
+  select(Sale_Price, Overall_Qual, Gr_Liv_Area, Garage_Area,
+         Total_Bsmt_SF, Year_Built, Full_Bath, TotRms_AbvGrd,
+         Lot_Area, Fireplaces)
+
+mat_kor <- cor(num_cols, use = "complete.obs")
+
+corrplot(mat_kor,
+         method      = "color",
+         type        = "upper",
+         order       = "hclust",
+         tl.cex      = 0.75,
+         tl.col      = "black",
+         addCoef.col = "black",
+         number.cex  = 0.55,
+         col         = colorRampPalette(c("#E05C5C", "white", "#3E7CB1"))(200),
+         title       = "Matriks Korelasi — Variabel Numerik AmesHousing",
+         mar         = c(0, 0, 2, 0))
+```
+
+```{r bar-korelasi, fig.height=4}
+# Menampilkan korelasi setiap variabel terhadap Sale_Price secara visual (bar chart).
+# Variabel Sale_Price sendiri dikeluarkan dari plot agar tidak membias hasil.
+
+kor_harga <- mat_kor["Sale_Price", ] %>%
+  sort(decreasing = TRUE) %>%
+  as.data.frame() %>%
+  rownames_to_column("Variabel") %>%
+  rename(Korelasi = ".") %>%
+  filter(Variabel != "Sale_Price")
+
+ggplot(kor_harga, aes(x = reorder(Variabel, Korelasi), y = Korelasi,
+                       fill = Korelasi > 0)) +
+  geom_col(show.legend = FALSE) +
+  geom_text(aes(label = round(Korelasi, 2)),
+            hjust = ifelse(kor_harga$Korelasi > 0, -0.1, 1.1), size = 3.2) +
+  coord_flip() +
+  scale_fill_manual(values = c("#E05C5C", "#3E7CB1")) +
+  scale_y_continuous(limits = c(-0.1, 0.95)) +
+  labs(
+    title = "Korelasi Setiap Variabel terhadap Harga Rumah (Sale_Price)",
+    x = NULL, y = "Koefisien Korelasi Pearson"
+  ) +
+  theme_minimal(base_size = 12)
+```
+
+> **Interpretasi:** Variabel **Overall_Qual** (kualitas bangunan) memiliki korelasi tertinggi dengan harga (\~0.80), diikuti oleh **Gr_Liv_Area** (luas bangunan) dan **Garage_Area**. Variabel-variabel inilah yang akan menjadi prediktor utama dalam model selanjutnya.
+
+## Hubungan Luas Rumah dan Harga Rumah
+
+```{r luas-vs-harga, fig.height=5}
+ggplot(ames, aes(x = Gr_Liv_Area, y = Sale_Price)) +
+  geom_point(alpha = 0.35, color = "#3E7CB1") +
+  geom_smooth(method = "lm", se = TRUE, color = "#E05C5C") +
+  scale_y_continuous(labels = dollar_format()) +
+  labs(
+    title = "Hubungan Luas Bangunan dengan Harga Rumah",
+    x = "Luas Bangunan (sqft)",
+    y = "Harga Rumah (USD)"
+  ) +
+  theme_minimal(base_size = 12)
+```
+
+> **Interpretasi:** Terdapat hubungan positif yang cukup kuat antara luas bangunan dan harga rumah — semakin luas bangunan, semakin tinggi harga jualnya. Garis regresi menunjukkan tren linear yang konsisten meskipun terdapat beberapa outlier pada luas bangunan yang sangat besar.
+
+## Harga Rumah Berdasarkan Kualitas Bangunan
+
+```{r boxplot-kualitas, fig.height=5}
+# Boxplot ini menampilkan sebaran harga untuk setiap level kualitas bangunan (1-10).
+# Overall_Qual dikonversi ke factor agar sumbu X tampil sebagai kategori diskret.
+# scale_fill_brewer menggunakan palet warna bawaan ggplot yang sudah terstandar.
+
+ames %>%
+  mutate(Overall_Qual = factor(Overall_Qual)) %>%
+  ggplot(aes(x = Overall_Qual, y = Sale_Price, fill = Overall_Qual)) +
+  geom_boxplot(show.legend = FALSE, outlier.alpha = 0.3, outlier.size = 1) +
+  scale_y_continuous(labels = dollar_format()) +
+  scale_fill_brewer(palette = "RdYlBu") +
+  labs(
+    title    = "Distribusi Harga Rumah per Level Kualitas Bangunan",
+    subtitle = "Overall_Qual: 1 = Sangat Buruk, 10 = Sangat Baik",
+    x        = "Kualitas Bangunan (Overall_Qual)",
+    y        = "Harga Jual (USD)"
+  ) +
+  theme_minimal(base_size = 12)
+```
+
+> **Interpretasi:** Terdapat pola yang sangat jelas — semakin tinggi nilai kualitas bangunan, semakin tinggi harga jual rumah. Rumah dengan kualitas 9–10 memiliki harga median yang jauh lebih tinggi dibandingkan rumah kualitas 1–3.
+
+------------------------------------------------------------------------
+
+# Model 1: Regression - Prediksi Harga Rumah
+
+Regression digunakan untuk membangun model yang dapat memprediksi nilai numerik. Pada analisis ini, regresi digunakan untuk memprediksi harga jual rumah (`Sale_Price`) berdasarkan karakteristik rumah seperti kualitas bangunan, luas bangunan, ukuran garasi, basement, dan tahun pembangunan.
+
+## Persiapan Data
+
+Sebelum membangun model regresi, dilakukan pemilihan variabel yang akan digunakan sebagai prediktor. Variabel dipilih berdasarkan karakteristik rumah yang memiliki kemungkinan hubungan terhadap harga jual.
+
+```{r persiapan-regresi}
+# Kita pilih variabel prediktor berdasarkan nilai korelasi tertinggi dengan Sale_Price.
+# Overall_Qual dikonversi menjadi numerik agar dapat digunakan dalam regresi.
+# drop_na() digunakan untuk menghapus data kosong jika ditemukan.
+
+ames_reg <- ames %>%
+  mutate(Overall_Qual_num = as.numeric(Overall_Qual)) %>%
+  select(Sale_Price, Overall_Qual_num, Gr_Liv_Area, Garage_Area,
+         Total_Bsmt_SF, Year_Built, Full_Bath, TotRms_AbvGrd) %>%
+  drop_na()
+
+cat(sprintf("Data siap untuk regresi: %d baris × %d kolom\n",
+            nrow(ames_reg), ncol(ames_reg)))
+```
+
+Variabel yang digunakan dalam model regresi adalah **Sale_Price** sebagai variabel target, 
+serta tujuh variabel prediktor yaitu **Overall_Qual**, **Gr_Liv_Area**, **Garage_Area**, 
+**Total_Bsmt_SF**, **Year_Built**, **Full_Bath**, dan **TotRms_AbvGrd**. 
+Variabel-variabel ini dipilih berdasarkan nilai korelasi tertinggi terhadap Sale_Price 
+yang telah diidentifikasi pada tahap EDA sebelumnya.
+
+Dataset regresi yang terbentuk berisi variabel target yaitu **Sale_Price** dan beberapa variabel prediktor yang akan digunakan untuk membantu model mempelajari pola hubungan antara karakteristik rumah dengan harga jual.
+
+------------------------------------------------------------------------
+
+## Pembagian Data Training dan Testing
+
+Dataset kemudian dibagi menjadi data training dan data testing. Data training digunakan untuk membangun model, sedangkan data testing digunakan untuk menguji kemampuan model dalam melakukan prediksi terhadap data baru.
+
+```{r split-regresi}
+# Data dibagi menjadi 80% training dan 20% testing.
+# set.seed(42) memastikan hasil pembagian data tetap sama.
+
+set.seed(42)
+
+idx_train <- createDataPartition(
+  ames_reg$Sale_Price,
+  p = 0.8,
+  list = FALSE
+)
+
+train_reg <- ames_reg[idx_train, ]
+test_reg  <- ames_reg[-idx_train, ]
+
+cat(sprintf("Data training : %d baris (%.0f%%)\n",
+            nrow(train_reg),
+            nrow(train_reg)/nrow(ames_reg)*100))
+
+cat(sprintf("Data testing  : %d baris (%.0f%%)\n",
+            nrow(test_reg),
+            nrow(test_reg)/nrow(ames_reg)*100))
+```
+
+Pembagian data dilakukan dengan proporsi **80:20**, sehingga sebagian besar data digunakan untuk proses pembelajaran model dan sisanya digunakan sebagai evaluasi performa model.
+
+------------------------------------------------------------------------
+
+## Membangun Model Regresi Linear
+
+Model regresi linear dibuat untuk mempelajari hubungan antara variabel prediktor dengan harga rumah. Variabel `Sale_Price` digunakan sebagai variabel target, sedangkan variabel lainnya digunakan sebagai faktor yang memengaruhi prediksi.
+
+```{r model-regresi}
+# lm() digunakan untuk membuat model Linear Regression.
+# Sale_Price ~ . berarti Sale_Price diprediksi menggunakan seluruh variabel lainnya.
+
+model_lm <- lm(
+  Sale_Price ~ .,
+  data = train_reg
+)
+
+summary(model_lm)
+```
+
+Hasil model menunjukkan pengaruh masing-masing variabel terhadap harga rumah serta nilai evaluasi seperti **R-Squared** yang menunjukkan kemampuan model dalam menjelaskan variasi harga rumah.
+
+------------------------------------------------------------------------
+
+## Prediksi dan Evaluasi Model
+
+Setelah model dibuat, dilakukan prediksi menggunakan data testing. Hasil prediksi kemudian dibandingkan dengan harga asli untuk mengetahui tingkat kesalahan dan performa model.
+
+```{r evaluasi-regresi}
+pred_lm <- predict(
+  model_lm,
+  newdata = test_reg
+)
+
+# Menghitung evaluasi model
+rmse_lm <- rmse(test_reg$Sale_Price, pred_lm)
+mae_lm  <- mae(test_reg$Sale_Price, pred_lm)
+r2_lm   <- cor(test_reg$Sale_Price, pred_lm)^2
+
+hasil_regresi <- data.frame(
+  Metrik = c(
+    "RMSE",
+    "MAE",
+    "R-Squared (R²)"
+  ),
+  Nilai = c(
+    dollar(round(rmse_lm)),
+    dollar(round(mae_lm)),
+    paste0(round(r2_lm * 100, 2), "%")
+  )
+)
+
+kable(
+  hasil_regresi,
+  caption = "Evaluasi Model Regresi Linear"
+) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover"),
+    full_width = FALSE
+  )
+```
+
+> **Interpretasi:** Berdasarkan hasil evaluasi, model Linear Regression memperoleh nilai R-Squared sebesar 83.47%. Hal ini menunjukkan bahwa sekitar 83.47% variasi harga rumah dapat dijelaskan oleh variabel prediktor yang digunakan, seperti kualitas bangunan, luas rumah, ukuran garasi, basement, dan tahun pembangunan. Nilai RMSE sebesar \$32,462 dan MAE sebesar \$22,776 menunjukkan rata-rata kesalahan prediksi model. Jika dibandingkan dengan skala harga rumah yang berada pada kisaran ratusan ribu dolar, nilai error tersebut masih cukup wajar, sehingga model dapat dikatakan memiliki performa yang baik dalam memprediksi harga rumah.
+
+------------------------------------------------------------------------
+
+## Visualisasi Hasil Prediksi
+
+Untuk melihat performa model secara visual, dilakukan perbandingan antara harga aktual dan harga hasil prediksi.
+
+```{r plot-aktual-vs-prediksi, fig.height=5}
+
+data.frame(
+  Aktual = test_reg$Sale_Price,
+  Prediksi = pred_lm
+) %>%
+  ggplot(aes(x = Aktual, y = Prediksi)) +
+  geom_point(alpha = 0.25, color = "#3E7CB1", size = 1.5) +
+  geom_abline(
+    slope = 1,
+    intercept = 0,
+    color = "#E05C5C",
+    linetype = "dashed",
+    linewidth = 1
+  ) +
+  scale_x_continuous(labels = dollar_format()) +
+  scale_y_continuous(labels = dollar_format()) +
+  labs(
+    title = "Nilai Aktual vs Nilai Prediksi — Model Regresi Linear",
+    x = "Harga Aktual (USD)",
+    y = "Harga Prediksi (USD)"
+  ) +
+  theme_minimal(base_size = 12)
+```
+
+> **Interpretasi:** Titik yang semakin mendekati garis diagonal menunjukkan hasil prediksi yang semakin mendekati harga sebenarnya. Model regresi linear mampu menangkap pola umum hubungan antara karakteristik rumah dengan harga jual.
+
+------------------------------------------------------------------------
+
+# Model 2: Classification - Klasifikasi Harga Rumah
+
+Classification digunakan untuk membuat model yang dapat memprediksi suatu kategori atau kelas. Pada analisis ini, classification digunakan untuk mengelompokkan rumah ke dalam kategori **Mahal** dan **Terjangkau** berdasarkan karakteristik rumah.
+
+Model yang digunakan adalah **Decision Tree**, yaitu algoritma yang melakukan klasifikasi dengan membentuk aturan keputusan berdasarkan variabel-variabel prediktor.
+
+------------------------------------------------------------------------
+
+## Membuat Label Kelas
+
+Dataset AmesHousing awalnya memiliki target berupa nilai numerik yaitu harga rumah (`Sale_Price`). Oleh karena itu, sebelum melakukan klasifikasi, harga rumah perlu diubah menjadi bentuk kategori.
+
+Pembentukan kategori dilakukan berdasarkan nilai median harga rumah. Rumah dengan harga di atas median dikategorikan sebagai **Mahal**, sedangkan rumah dengan harga di bawah atau sama dengan median dikategorikan sebagai **Terjangkau**.
+
+```{r label-kelas}
+# Menghitung nilai tengah dari harga rumah sebagai batas pembagian kategori.
+
+median_harga <- median(ames$Sale_Price)
+
+cat(sprintf("Nilai median harga rumah: %s\n", dollar(median_harga)))
+
+# Membuat variabel kategori harga dan memilih variabel prediktor.
+
+ames_cls <- ames %>%
+  mutate(
+    Kategori_Harga = factor(
+      ifelse(
+        Sale_Price > median_harga,
+        "Mahal",
+        "Terjangkau"
+      ),
+      levels = c("Terjangkau", "Mahal")
+    )
+  ) %>%
+  select(
+    Kategori_Harga,
+    Overall_Qual,
+    Gr_Liv_Area,
+    Garage_Area,
+    Total_Bsmt_SF,
+    Year_Built,
+    Full_Bath,
+    TotRms_AbvGrd
+  ) %>%
+  drop_na()
+
+cat("\nDistribusi kelas:\n")
+table(ames_cls$Kategori_Harga)
+```
+
+Variabel target pada model klasifikasi adalah **Kategori_Harga**, yaitu label baru yang 
+dibuat dari Sale_Price berdasarkan nilai median — rumah dengan harga di atas median 
+dikategorikan **Mahal**, dan di bawah median dikategorikan **Terjangkau**. Sale_Price 
+tidak diikutkan langsung sebagai prediktor. Tujuh variabel prediktor yang digunakan 
+sama dengan model regresi yaitu **Overall_Qual**, **Gr_Liv_Area**, **Garage_Area**, 
+**Total_Bsmt_SF**, **Year_Built**, **Full_Bath**, dan **TotRms_AbvGrd**.
+
+Hasil dari tahap ini adalah dataset baru yang memiliki variabel target berupa **Kategori_Harga**. Variabel inilah yang akan diprediksi oleh model Decision Tree berdasarkan karakteristik rumah.
+
+------------------------------------------------------------------------
+
+## Pembagian Data Training dan Testing
+
+Sama seperti model regresi, dataset klasifikasi juga dibagi menjadi data training dan testing. Pembagian ini dilakukan untuk mengetahui apakah model dapat melakukan klasifikasi dengan baik pada data yang belum pernah dipelajari sebelumnya.
+
+```{r split-klasifikasi}
+# Data dibagi menjadi 80% training dan 20% testing.
+# createDataPartition digunakan agar proporsi kelas tetap seimbang.
+
+set.seed(42)
+
+idx_cls <- createDataPartition(
+  ames_cls$Kategori_Harga,
+  p = 0.8,
+  list = FALSE
+)
+
+train_cls <- ames_cls[idx_cls, ]
+test_cls  <- ames_cls[-idx_cls, ]
+
+cat(sprintf("Data training : %d baris\n", nrow(train_cls)))
+cat(sprintf("Data testing  : %d baris\n", nrow(test_cls)))
+```
+
+Data training digunakan untuk membangun pola klasifikasi, sedangkan data testing digunakan untuk mengevaluasi kemampuan model dalam menentukan kategori harga rumah.
+
+------------------------------------------------------------------------
+
+## Membangun Model Decision Tree
+
+Pada tahap ini dibuat model **Decision Tree** untuk mempelajari hubungan antara karakteristik rumah dengan kategori harga. Decision Tree bekerja dengan membentuk percabangan berdasarkan variabel yang paling berpengaruh dalam membedakan kelas.
+
+```{r model-dt}
+# rpart digunakan untuk membuat model Decision Tree.
+# method = "class" menunjukkan bahwa model digunakan untuk klasifikasi.
+
+model_dt <- rpart(
+  Kategori_Harga ~ .,
+  data = train_cls,
+  method = "class",
+  control = rpart.control(
+    maxdepth = 5,
+    minsplit = 30
+  )
+)
+
+rpart.plot(
+  model_dt,
+  type = 4,
+  extra = 104,
+  main = "Decision Tree — Klasifikasi Harga Rumah",
+  cex = 0.65,
+  fallen.leaves = TRUE
+)
+```
+
+Hasil visualisasi Decision Tree menunjukkan aturan pemisahan data berdasarkan variabel tertentu. Variabel yang berada pada bagian atas pohon merupakan variabel yang memiliki peran besar dalam menentukan kategori harga rumah.
+
+------------------------------------------------------------------------
+
+## Evaluasi Model
+
+Setelah model dibuat, dilakukan prediksi terhadap data testing. Hasil prediksi kemudian dibandingkan dengan kategori sebenarnya menggunakan **Confusion Matrix**.
+
+```{r evaluasi-dt}
+pred_dt <- predict(
+  model_dt,
+  newdata = test_cls,
+  type = "class"
+)
+
+cm_dt <- confusionMatrix(
+  pred_dt,
+  test_cls$Kategori_Harga,
+  positive = "Mahal"
+)
+
+cm_table <- as.data.frame(cm_dt$table)
+
+ggplot(cm_table, aes(x = Reference, y = Prediction, fill = Freq)) +
+  geom_tile(color = "white", linewidth = 1.5) +
+  geom_text(aes(label = Freq), size = 10, fontface = "bold", color = "white") +
+  scale_fill_gradient(low = "#3E7CB1", high = "#1a3a5c") +
+  labs(
+    title = "Confusion Matrix — Decision Tree",
+    x = "Aktual",
+    y = "Prediksi"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "none")
+
+akurasi <- cm_dt$overall["Accuracy"]
+
+cat(sprintf("Accuracy Model Decision Tree: %.2f%%\n", akurasi * 100))
+```
+
+> **Interpretasi:** Dari confusion matrix di atas, model Decision Tree berhasil mengklasifikasikan **263 rumah Terjangkau** dan **251 rumah Mahal** dengan benar. Sementara itu, terdapat **30 rumah** yang sebenarnya Terjangkau namun diprediksi Mahal, dan **41 rumah** yang sebenarnya Mahal namun diprediksi Terjangkau. Secara keseluruhan, model memperoleh Accuracy sebesar **87.86%**, yang berarti sekitar 87 dari 100 rumah berhasil diklasifikasikan dengan benar.
+
+------------------------------------------------------------------------
+
+# Model 3: Clustering - Segmentasi Rumah
+
+Clustering digunakan untuk menemukan kelompok atau pola tersembunyi pada data tanpa menggunakan label target. Berbeda dengan regression dan classification yang memiliki target prediksi, clustering bertujuan untuk mengelompokkan data berdasarkan kemiripan karakteristik.
+
+Pada analisis ini digunakan metode **K-Means Clustering** untuk melakukan segmentasi rumah berdasarkan karakteristik seperti harga, luas bangunan, kualitas rumah, ukuran garasi, basement, dan tahun pembangunan.
+
+## Memilih Variabel dan Standarisasi
+
+Sebelum melakukan clustering, dilakukan pemilihan variabel numerik yang akan digunakan sebagai dasar pengelompokan. Variabel kategorik tidak digunakan karena metode K-Means bekerja berdasarkan perhitungan jarak antar data.
+
+Selain itu, dilakukan proses standarisasi agar seluruh variabel memiliki skala yang seimbang. Hal ini diperlukan karena setiap variabel memiliki satuan berbeda, seperti harga dalam USD dan luas bangunan dalam sqft.
+
+Karena K-Means merupakan metode unsupervised, tidak ada variabel target dalam clustering. 
+Enam variabel dipilih berdasarkan kemampuannya merepresentasikan karakteristik rumah 
+dari berbagai dimensi — **Sale_Price** (nilai ekonomis), **Gr_Liv_Area** (ukuran bangunan), 
+**Overall_Qual** (kualitas), **Garage_Area** dan **Total_Bsmt_SF** (fasilitas), 
+serta **Year_Built** (usia bangunan). Variabel kategorik seperti Neighborhood 
+dikeluarkan karena K-Means membutuhkan input numerik.
+
+```{r prep-klaster}
+# Untuk clustering, kita hanya menggunakan variabel numerik.
+# Penting: variabel kategorik seperti Neighborhood harus dikeluarkan.
+# Overall_Qual dikonversi ke numerik terlebih dahulu.
+
+ames_clust <- ames %>%
+  mutate(Overall_Qual = as.numeric(Overall_Qual)) %>%
+  select(Sale_Price, Gr_Liv_Area, Overall_Qual,
+         Garage_Area, Total_Bsmt_SF, Year_Built) %>%
+  drop_na()
+
+# Standarisasi (Z-score normalization) sangat penting untuk K-Means!
+# Tanpa standarisasi, variabel dengan skala besar (misal Sale_Price dalam ratusan ribu)
+# akan mendominasi perhitungan jarak dan membias hasil cluster.
+# Setelah standarisasi: mean = 0, standar deviasi = 1 untuk semua variabel.
+
+ames_scaled <- scale(ames_clust)
+
+cat("Statistik setelah standarisasi:\n")
+round(apply(ames_scaled, 2, function(x) c(Mean=mean(x), SD=sd(x))), 4) %>%
+  kable(caption = "Mean dan SD setelah Z-score Normalization") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+Setelah proses standarisasi, setiap variabel memiliki nilai rata-rata mendekati 0 dan standar deviasi 1. Data hasil standarisasi kemudian digunakan pada proses K-Means agar perhitungan jarak antar rumah tidak didominasi oleh variabel dengan nilai yang lebih besar.
+
+## Menentukan Jumlah Cluster Optimal (Elbow Method)
+
+Sebelum menjalankan K-Means, perlu ditentukan jumlah cluster (k) yang paling sesuai. Pada analisis ini digunakan **Elbow Method** dengan membandingkan nilai Within-Cluster Sum of Squares (WSS) pada beberapa jumlah cluster.
+
+Jumlah cluster dipilih pada titik ketika penurunan WSS mulai melambat atau membentuk titik siku (elbow).
+
+```{r elbow, fig.height=4}
+# Elbow Method: kita coba K-Means dengan k = 1 sampai 10,
+# lalu plot nilai WSS (Within-cluster Sum of Squares) untuk setiap k.
+# WSS mengukur seberapa "rapat" anggota dalam setiap cluster.
+# Kita cari titik "siku" (elbow) — di mana penurunan WSS mulai melambat.
+# Titik tersebut adalah jumlah cluster yang optimal.
+
+set.seed(42)
+nilai_wss <- map_dbl(1:10, function(k) {
+  kmeans(ames_scaled, centers = k, nstart = 25, iter.max = 100)$tot.withinss
+})
+
+data.frame(k = 1:10, WSS = nilai_wss) %>%
+  ggplot(aes(x = k, y = WSS)) +
+  geom_line(color = "#3E7CB1", linewidth = 1.3) +
+  geom_point(size = 3.5, color = "#E05C5C") +
+  geom_point(aes(x = 3, y = nilai_wss[3]),
+             size = 5, shape = 21, fill = "orange", color = "black") +
+  annotate("text", x = 3.3, y = nilai_wss[3] * 1.06,
+           label = "Elbow ≈ k=3", color = "darkorange", size = 4, fontface = "bold") +
+  scale_x_continuous(breaks = 1:10) +
+  labs(
+    title    = "Elbow Method — Menentukan Jumlah Cluster Optimal",
+    subtitle = "Titik oranye menandakan nilai k yang dipilih",
+    x        = "Jumlah Cluster (k)",
+    y        = "Total Within-Cluster Sum of Squares (WSS)"
+  ) +
+  theme_minimal(base_size = 12)
+```
+
+Berdasarkan Elbow Method, nilai **k = 3** dipilih sebagai jumlah cluster optimal karena setelah k=3 penurunan nilai WSS mulai tidak signifikan.
+
+## Menjalankan K-Means Clustering
+
+Setelah jumlah cluster optimal diperoleh, dilakukan proses K-Means Clustering. Algoritma ini bekerja dengan mengelompokkan data berdasarkan kedekatan karakteristik antar rumah.
+
+Setiap rumah akan ditempatkan ke cluster dengan pusat kelompok (centroid) yang paling dekat.
+
+```{r kmeans}
+# Setelah menentukan k = 3, kita jalankan K-Means.
+# nstart = 25 berarti algoritma dijalankan 25 kali dengan titik awal acak yang berbeda-beda,
+# lalu dipilih hasil dengan WSS terkecil — ini membantu menghindari konvergensi lokal.
+# iter.max = 100 membatasi jumlah iterasi maksimum.
+
+set.seed(42)
+k_optimal <- 3
+model_km  <- kmeans(ames_scaled, centers = k_optimal, nstart = 25, iter.max = 100)
+
+# Tambahkan label cluster ke dataframe asli (yang belum distandarisasi)
+# agar profiling cluster lebih mudah diinterpretasi.
+ames_clust$Cluster <- factor(model_km$cluster)
+
+cat("Jumlah anggota per cluster:\n")
+table(ames_clust$Cluster)
+```
+
+Hasil dari proses K-Means adalah pembagian setiap rumah ke dalam salah satu cluster. Label cluster kemudian ditambahkan kembali ke dataset asli agar karakteristik masing-masing kelompok dapat dianalisis.
+
+## Visualisasi Cluster
+
+Visualisasi dilakukan untuk melihat hasil pengelompokan rumah berdasarkan cluster yang terbentuk. Karena data memiliki banyak variabel, digunakan reduksi dimensi agar hasil clustering dapat ditampilkan dalam bentuk dua dimensi.
+
+```{r visualisasi-cluster, fig.height=5}
+# fviz_cluster() dari package factoextra memvisualisasikan hasil clustering.
+# Karena data memiliki lebih dari 2 dimensi, fungsi ini secara otomatis
+# melakukan reduksi dimensi menggunakan PCA (Principal Component Analysis)
+# dan menampilkannya dalam 2D untuk memudahkan visualisasi.
+
+fviz_cluster(
+  model_km,
+  data          = ames_scaled,
+  geom          = "point",
+  ellipse       = TRUE,
+  ellipse.alpha = 0.12,
+  palette       = c("#E05C5C", "#3E7CB1", "#2ECC71"),
+  ggtheme       = theme_minimal(base_size = 12),
+  main          = "Visualisasi Cluster Rumah — K-Means (k = 3)"
+)
+```
+
+## Profiling Cluster
+
+Setelah cluster terbentuk, dilakukan profiling untuk memahami karakteristik masing-masing kelompok. Tahap ini dilakukan dengan membandingkan rata-rata variabel utama pada setiap cluster.
+
+```{r profiling}
+# Profiling bertujuan memahami karakteristik rata-rata setiap cluster,
+# sehingga kita bisa memberikan "nama" atau interpretasi pada setiap kelompok.
+# Kita gunakan data ASLI (bukan yang sudah distandarisasi) agar hasilnya
+# mudah dipahami (dalam satuan USD, sqft, dll.).
+
+profil <- ames_clust %>%
+  group_by(Cluster) %>%
+  summarise(
+    `Jumlah Rumah`     = n(),
+    `Rata-rata Harga`  = dollar(round(mean(Sale_Price))),
+    `Rata-rata Luas`   = paste0(round(mean(Gr_Liv_Area)), " sqft"),
+    `Rata-rata Kualitas` = round(mean(Overall_Qual), 1),
+    `Tahun Dibangun`   = round(mean(Year_Built)),
+    .groups = "drop"
+  )
+
+kable(profil, caption = "Profil Karakteristik Setiap Cluster") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "bordered"),
+                full_width = FALSE) %>%
+  column_spec(1, bold = TRUE)
+```
+
+```{r plot-profiling, fig.height=5}
+# Visualisasi profil cluster untuk tiga variabel utama: Harga, Luas, dan Kualitas.
+# Grafik batang (bar chart) dengan facet memudahkan perbandingan antar cluster.
+
+ames_clust %>%
+  group_by(Cluster) %>%
+  summarise(
+    `Rata-rata Harga (USD)`    = mean(Sale_Price),
+    `Rata-rata Luas (sqft)`    = mean(Gr_Liv_Area),
+    `Rata-rata Kualitas (1-10)` = mean(Overall_Qual),
+    .groups = "drop"
+  ) %>%
+  pivot_longer(-Cluster, names_to = "Metrik", values_to = "Nilai") %>%
+  ggplot(aes(x = Cluster, y = Nilai, fill = Cluster)) +
+  geom_col(show.legend = FALSE, width = 0.6) +
+  geom_text(aes(label = round(Nilai, 1)), vjust = -0.4, size = 3.5) +
+  facet_wrap(~Metrik, scales = "free_y") +
+  scale_fill_manual(values = c("#E05C5C", "#3E7CB1", "#2ECC71")) +
+  labs(
+    title = "Profiling Cluster — Perbandingan Rata-rata Karakteristik",
+    x     = "Cluster",
+    y     = "Nilai Rata-rata"
+  ) +
+  theme_minimal(base_size = 12)
+```
+
+> **Interpretasi Cluster:**\
+> Berdasarkan profil di atas, ketiga cluster mencerminkan segmen rumah yang berbeda-beda:
+>
+> -   **Cluster dengan harga tertinggi** → Rumah premium: luas besar, kualitas tinggi, relatif baru\
+> -   **Cluster dengan harga menengah** → Rumah kelas menengah: ukuran dan kualitas moderat\
+> -   **Cluster dengan harga terendah** → Rumah ekonomis: ukuran kecil, kualitas lebih rendah, atau lebih tua
+>
+> Segmentasi ini bermanfaat bagi pengembang properti dan agen real estate untuk menentukan strategi pemasaran yang tepat sasaran.
+
+## Evaluasi Model K-Means Clustering
+
+Evaluasi pada model clustering berbeda dengan regression dan classification karena K-Means merupakan metode **unsupervised learning** yang tidak memiliki label aktual sebagai pembanding.
+
+Pada regression, evaluasi dilakukan dengan membandingkan nilai prediksi dan nilai aktual. Pada classification, evaluasi dilakukan dengan membandingkan kelas hasil prediksi dengan kelas sebenarnya. Sedangkan pada clustering, evaluasi dilakukan berdasarkan kualitas pembentukan kelompok yang dihasilkan.
+
+Pada analisis ini, evaluasi clustering dilakukan menggunakan **Silhouette Score**. Metrik ini digunakan untuk mengetahui seberapa baik objek berada dalam cluster yang sama dan seberapa jauh objek tersebut dengan cluster lainnya.
+
+Nilai Silhouette Score berada pada rentang -1 hingga 1: - Nilai mendekati **1** menunjukkan cluster terbentuk dengan pemisahan yang sangat baik. - Nilai mendekati **0** menunjukkan terdapat data yang berada di antara dua cluster. - Nilai negatif menunjukkan kemungkinan data berada pada cluster yang kurang sesuai.
+
+```{r evaluasi-clustering}
+# Menghitung Silhouette Score untuk mengevaluasi hasil K-Means
+
+silhouette_result <- silhouette(
+  model_km$cluster,
+  dist(ames_scaled)
+)
+
+silhouette_score <- mean(
+  silhouette_result[, 3]
+)
+
+
+hasil_silhouette <- data.frame(
+  Metrik = "Silhouette Score",
+  Nilai = round(silhouette_score, 4)
+)
+
+
+kable(
+  hasil_silhouette,
+  caption = "Evaluasi Model K-Means Menggunakan Silhouette Score"
+) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover"),
+    full_width = FALSE
+  )
+```
+
+Walaupun nilai Silhouette Score menunjukkan pemisahan cluster belum sempurna, hasil profiling menunjukkan setiap cluster tetap memiliki karakteristik yang berbeda.
+
+> **Interpretasi:**\
+> Berdasarkan nilai Silhouette Score yang diperoleh, dapat diketahui tingkat pemisahan antar cluster pada model K-Means. Nilai yang tidak terlalu tinggi menunjukkan bahwa masih terdapat beberapa data rumah yang memiliki karakteristik berdekatan antar cluster. Hal ini wajar terjadi karena karakteristik properti seperti harga, luas bangunan, dan kualitas rumah memiliki perubahan yang bertahap (*continuous*) sehingga batas antar kelompok tidak selalu terpisah secara jelas.
+>
+> Oleh karena itu, hasil clustering juga dianalisis melalui **profiling cluster**. Berdasarkan profiling, setiap cluster tetap menunjukkan perbedaan karakteristik seperti rata-rata harga, luas bangunan, kualitas rumah, dan tahun pembangunan, sehingga hasil segmentasi masih dapat memberikan informasi mengenai kelompok rumah yang berbeda.
+
+------------------------------------------------------------------------
+
+# Insight dan Pembahasan Hasil
+
+Berdasarkan seluruh proses Data Mining yang telah dilakukan, diperoleh beberapa insight utama:
+
+1.  Faktor utama yang memengaruhi harga rumah adalah kualitas bangunan (`Overall_Qual`) dan luas bangunan (`Gr_Liv_Area`).
+
+2.  Model Regression mampu melakukan prediksi harga rumah berdasarkan karakteristik properti.
+
+3.  Model Classification mampu membedakan rumah kategori mahal dan terjangkau.
+
+4.  Model Clustering menghasilkan tiga segmentasi rumah yaitu kelompok premium, menengah, dan ekonomis.
+
+> Model Regression memiliki performa yang baik dalam menangkap pola harga rumah, sedangkan hasil clustering menunjukkan segmentasi yang cukup informatif meskipun terdapat beberapa karakteristik rumah yang saling berdekatan antar cluster.
+
+# Kesimpulan
+
+Berdasarkan hasil analisis Data Mining pada dataset **AmesHousing** yang terdiri dari 2.930 observasi dan 81 variabel, diperoleh beberapa kesimpulan sebagai berikut:
+
+## 1. Deskripsi Data dan Faktor yang Memengaruhi Harga Rumah
+
+Hasil eksplorasi data menunjukkan bahwa distribusi harga rumah cenderung **right-skewed**, di mana sebagian besar rumah berada pada rentang harga rendah hingga menengah, sedangkan hanya sebagian kecil rumah memiliki harga sangat tinggi.
+
+Berdasarkan analisis korelasi, variabel yang memiliki pengaruh paling besar terhadap harga rumah adalah **Overall_Qual** (kualitas bangunan) dan **Gr_Liv_Area** (luas bangunan). Hal ini menunjukkan bahwa semakin baik kualitas bangunan dan semakin luas ukuran rumah, maka harga jual rumah cenderung meningkat.
+
+## 2. Prediksi Harga Rumah (Regression)
+
+Model **Regresi Linear** berhasil digunakan untuk memprediksi harga rumah (`Sale_Price`) berdasarkan karakteristik rumah seperti kualitas bangunan, luas area, ukuran garasi, basement, dan tahun pembangunan.
+
+Evaluasi menggunakan **RMSE, MAE, dan R-Squared (R²)** menunjukkan kemampuan model dalam memperkirakan harga rumah. Nilai R² menggambarkan seberapa besar variasi harga rumah yang dapat dijelaskan oleh variabel-variabel prediktor.
+
+## 3. Klasifikasi Harga Rumah (Classification)
+
+Metode **Decision Tree** digunakan untuk mengelompokkan rumah ke dalam kategori **Mahal** dan **Terjangkau** berdasarkan nilai median harga rumah.
+
+Hasil evaluasi menggunakan **Confusion Matrix, Accuracy, Precision, Recall, dan F1-Score** menunjukkan bahwa model mampu mengenali pola karakteristik rumah dalam menentukan kategori harga.
+
+## 4. Segmentasi Rumah (Clustering)
+
+Metode **K-Means Clustering** berhasil membagi rumah menjadi beberapa kelompok berdasarkan kemiripan karakteristik seperti harga, luas bangunan, kualitas rumah, dan tahun pembangunan.
+
+Cluster yang terbentuk menunjukkan adanya segmentasi rumah dengan karakteristik berbeda, seperti kelompok rumah dengan nilai dan kualitas lebih tinggi, kelompok menengah, serta kelompok dengan karakteristik lebih sederhana.
+
+## Kesimpulan Akhir
+
+Secara keseluruhan, dataset **AmesHousing** dapat digunakan untuk menerapkan seluruh tahapan Data Mining mulai dari **Exploratory Data Analysis (EDA), Regression, Classification, hingga Clustering**.
+
+Hasil analisis menunjukkan bahwa **kualitas bangunan (`Overall_Qual`) dan luas bangunan (`Gr_Liv_Area`) merupakan faktor utama yang berhubungan dengan harga rumah**, serta model Data Mining dapat membantu melakukan prediksi harga dan segmentasi properti berdasarkan karakteristiknya.
+
+------------------------------------------------------------------------
+
+*Laporan dibuat menggunakan R Markdown — `r format(Sys.Date(), '%d %B %Y')`*
